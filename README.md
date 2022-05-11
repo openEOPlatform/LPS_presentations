@@ -4,3 +4,6 @@ Repository to share and work on Notebooks and Presentations for each classroom t
 
 
 Please follow the folder structure given and add your presentations + jupyter notebooks.
+
+
+![Schedule](LPS_Schedule.jpg)
