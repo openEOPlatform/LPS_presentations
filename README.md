@@ -1,5 +1,5 @@
 # LPS_presentations
-Reopository to share and work on Notebooks and Presentations for each classroom training and demo
+Repository to share and work on Notebooks and Presentations for each classroom training and demo
 
 
 
