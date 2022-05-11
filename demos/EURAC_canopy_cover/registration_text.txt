@@ -1,0 +1,2 @@
+openEO Platform allows to have access to dozens of data collections from multiple satellite missions for multiple years. What are the possibilities given by this huge amount of data? This demo will focus on the insights we could get looking at timeseries for specific locations.
+Different specific temporal processes will be demoed: temporal filtering, aggregation, interpolation, and curve fitting with real-world examples on a relevant topic such forest monitoring.

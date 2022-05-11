@@ -1,0 +1,8 @@
+This training will use a working Python code example to demonstrate how openEO can support a deep learning and classical machine learning use case. The use case will show how to extract agriculture parcel boundaries from Sentinel-2 input.
+Learning goals:
+	Collecting training data with openEO
+	Training and inference of a random forest model
+	Integrating a Tensorflow based model in a user defined function for inference in openEO.
+Prerequisites:
+	Basic understanding of ML concepts
+	Python programming

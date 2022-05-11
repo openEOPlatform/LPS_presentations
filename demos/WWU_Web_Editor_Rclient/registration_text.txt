@@ -1,0 +1,5 @@
+openEO Platform allows to process a wide variety of earth observation datasets in a cloud platform. This large-scale data access and processing is performed on multiple infrastructures, which all support the openEO API.
+Users interact with the API through clients. This demonstration shows the usage and capabilities of the Web Editor and the R-Client.
+The Web Editor is a webtool to interactively build processing chains by connecting the openEO processes visually. This is the most intuitive way to get in touch with openEO Platform. 
+The R-Client is the openEO Platform entry point for R users and is available through the Comprehensive R Archive Network (CRAN). It facilitates the interaction with the openEO API within the R programming language and the advantages of the R-Studio IDE and R’s well known geospatial libraries.
+The demonstration showcases a round trip through a typical openEO Platform workflow: login to openEO Platform, data and process discovery, process graph building adapted to common use cases, processing of data and the visualization of results.

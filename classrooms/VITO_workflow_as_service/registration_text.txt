@@ -1,0 +1,4 @@
+
+When research results in usable workflows, it is often not easy to provide them to interested users.
+This short training will demonstrate how an openEO workflow can be easily turned into a web service with parameters. This allows a user to generate customized results for any area of interest.
+Integration in a marketplace then allows to further enhance the visibility of your results.

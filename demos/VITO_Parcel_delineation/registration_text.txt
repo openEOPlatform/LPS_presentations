@@ -1,0 +1,4 @@
+This demo shows a working agriculture parcel extraction using openEO. It uses a Tensorflow deep learning model to classify pixels belonging to the same parcel, and openEO processes for pre and post processing.
+The notebook for this sample is available online:
+	https://github.com/openEOPlatform/parcel-delineation/blob/main/Parcel%20delineation.ipynb
+
