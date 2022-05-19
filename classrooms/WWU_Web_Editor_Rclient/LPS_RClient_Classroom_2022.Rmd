@@ -374,8 +374,10 @@ result2 = p$save_result(data = agg_spat, format = "netCDF")
 ```
 
 Check the updated process graph
+
 ```{r result2, eval=FALSE}
-toJSON(as(agg_spat, "Process"))
+#toJSON(as(result2, "Process"))
+as(result2, "Process")
 ```
 
 Run the process graph.
