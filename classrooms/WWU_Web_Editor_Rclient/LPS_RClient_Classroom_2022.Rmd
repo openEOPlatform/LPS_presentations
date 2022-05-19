@@ -1,0 +1,471 @@
+---
+title: "Living Planet Symposiom 2022: openEO platform R-Client Classroom"
+author: 
+ - Peter Zellner, Eurac Research
+ - Florian Lahn, EFTAS
+ - Matthias Mohr, University of Münster
+ - Mattia Rossi, Eurac Research
+date: "11/05/2022"
+output:
+  html_document:
+    toc: true
+    toc_depth: 3
+    toc_float: TRUE
+---
+
+![](https://webassets.eurac.edu/31538/1629894586-open-eo-platform.png?fit=max&fm=jpg&w=1000){width="400"}
+
+![](https://www.eurac.edu/_next/image?url=https%253A%252F%252Fwebassets.eurac.edu%252F31538%252F1634027841-logoproject.png%253Fauto%253Dformat%2526fit%253Dclip%2526fm%253Djpg%2526h%253D300%2526w%253D300&w=640&q=85){width="116"}
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Preface
+
+## Before you start...
+
+-   the openEO platform getting started guide <https://docs.openeo.cloud/getting-started/r/>
+-   the openEO R-Client vignettes <https://open-eo.github.io/openeo-r-client/>
+-   and the R-Client repo for logging issues and collaborating <https://github.com/Open-EO/openeo-r-client>
+-   Introduction to data-cubes <https://openeo.org/documentation/1.0/datacubes.html>
+
+## Topics
+
+-   Installation of the openEO R-Client
+-   Authentication and Log-In
+-   Discovery of collections and processes
+-   Usability and R-Studio integration
+-   Processing
+-   Analyze results
+
+# Installation of the openEO R-Client
+
+The openEO R-Client is available on CRAN. Install via `install.packages("openeo")`.
+
+In case you want to use a specific version of the R-Client you can install it from the [openEO github repository](https://github.com/Open-EO/openeo-r-client).
+
+It can be installed via `remotes::install_github()`. For the dev version set `remotes::install_gitub(remotes::install_github(repo="Open-EO/openeo-r-client",ref="develop", dependencies=TRUE)`.
+
+```{r install, eval=FALSE}
+# install.packages("openeo")
+packageVersion("openeo") >= '1.2.0'
+```
+
+## Useful libraries
+
+Load the openEO R-Client library and some other useful libraries.
+
+```{r libs, message=FALSE, warning=FALSE}
+library(openeo)
+library(stars)
+library(sf)
+library(mapview)
+library(mapedit)
+library(dplyr)
+library(tibble)
+library(ggplot2)
+library(plotly)
+```
+
+# Authentication and Login
+
+## Authentication
+
+Before you can use openEO Platform you need a user account to authenticate yourself. To handle authentication, openEO leverages [OpenID Connect (OIDC)](https://openid.net/connect/). The [general authentication documentation for openEO Platform](https://docs.openeo.cloud/authentication/#authentication) describes the authentication procedure in more detail.
+
+## Login
+
+First connect to the backend. This allows to discover the collections (as seen in the connections pane) and the processes.
+
+In a second step log in. This allows to use the full functionality of openEO Platform including processing. Slight differences will occur depending on the type of account you have (e.g., free tier, early adopter).
+
+```{r connect_and_login}
+host = "https://openeo.cloud"
+con = openeo::connect(host)
+login()
+```
+
+Sometimes it's useful to get your account information and check whether you are still logged in.
+
+```{r check_login}
+describe_account()
+con$isConnected()
+con$isLoggedIn()
+```
+
+# Discovery of collections and processes
+
+Once you're connected you can discover processes and collections. This gives you valuable metadata on collections and information on how to use the processes.
+
+## Discover collections
+
+The collections appear in the connections pane of R-Studio. You can also list them via `list_collections()` directly:
+
+```{r list_collections}
+list_collections()
+```
+
+For the full metadata of a single collection, use `describe_collection()`.
+
+```{r describe_collection}
+coll_meta = openeo::describe_collection("SENTINEL2_L1C_SENTINELHUB")
+coll_meta
+```
+
+To use the collection metadata for further coding you can use the content of `describe_collection()`.
+
+```{r describe_collection}
+ext = coll_meta$extent$spatial # you could use this to draw a bbox of the collection
+st_bbox(obj = c(xmin = ext[1], ymin = ext[2], xmax = ext[3], ymax = ext[4]), crs = 4326) %>% mapview()
+
+```
+
+## Discover processes
+
+To get an overview of the available processes use `list_processes()`
+
+```{r list_processes}
+list_processes()
+```
+
+# Processing
+
+-   Load Sentinel 2 L1C data
+-   Define the area of interest, temporal range and bands
+-   Atmospherically correct the values on the fly
+-   Aggregate monthly means
+-   Calculate the NDVI
+-   Download the result
+
+## Definitions
+
+First define an area of interest interactively (either a point or area). You can also use multiple features and loop through them later on.
+
+```{r aoi_process}
+# this is interactive
+pnts = mapedit::drawFeatures()
+
+# this is static for areas - Bonn
+# pnts = c(xmin = 6.631536, ymin = 50.811346, xmax = 6.646557, ymax = 50.821710)
+# pnts = st_bbox(pnts, crs = st_crs(4326))
+mapview(pnts)
+
+bbox = st_bbox(pnts)
+bbox = list(west = bbox[[1]],
+            east = bbox[[3]],
+            south = bbox[[2]],
+            north = bbox[[4]])
+```
+
+Define the collection (data set), time range and bands.
+
+```{r defs_process}
+
+collection = "SENTINEL2_L2A" # only for Belgium
+bands = c("B04", "B08")
+
+# The extensive list of bands is only needed if atmospheric correction is applied.
+# collection = "SENTINEL2_L1C_SENTINELHUB" # for atmospheric_correction, takes a while
+# bands = c("B04", "B08", "CLP", "B09", "B8A", "B11",
+#           "sunAzimuthAngles", "sunZenithAngles", "viewAzimuthMean", "viewZenithMean")
+
+time_range = list("2018-01-01", 
+                  "2019-01-01")
+
+```
+
+## Build the processing chain
+
+Start building the processing chain. First, load the available processes. You can access the available processes assigned to `p` here via the `$` operator.
+
+⚠️ Auto-completion is a very helpful feature ⚠️
+
+```{r load_processes, eval=FALSE}
+p = openeo::processes()
+```
+
+Load the collection.
+
+```{r load_data, eval=FALSE}
+data = p$load_collection(id = collection, 
+                         spatial_extent = bbox,
+                         temporal_extent = time_range, 
+                         bands = bands) 
+#, properties = list("eo:cloud_cover" = function(x){x < 35})) # for the whole scene, not the aoi
+# The different processes can be also chained using the pipe %>%.
+  
+```
+
+Atmospherical Correction on the fly. Only works for collections that support/need atmospheric correction (e.g., "SENTINEL2_L1C_SENTINELHUB) and the necessary bands need to be available in the data cube (see extended band list above).
+
+```{r atmopspherical_correction, eval=FALSE}
+# takes too long, for the demo since has to work on whole tile
+# atm_corr = p$atmospheric_correction(data = data, method = "smac") # or use "iCor"
+```
+
+Calculate NDVI. Reduce the "bands" dimension with the well known NDVI formula.
+
+```{r calc_ndvi, eval=FALSE}
+calc_ndvi = p$reduce_dimension(data = data, 
+                               dimension = "bands", 
+                               reducer = function(data, context) {
+                                 red = data[1]
+                                 nir = data[2]
+                                 (nir-red)/(nir+red)})
+
+```
+
+Aggregate to temporal periods.
+
+```{r temporal_period, eval=FALSE}
+# process_viewer("aggregate_temporal")
+
+# define intervals
+intervals = list(c('2018-01-02', '2018-02-01'),
+                 c('2018-02-01', '2018-03-01'),
+                 c('2018-03-01', '2018-04-01'),
+                 c('2018-04-01', '2018-05-01'),
+                 c('2018-05-01', '2018-06-01'), 
+                 c('2018-06-01', '2018-07-01'), 
+                 c('2018-07-01', '2018-08-01'),
+                 c('2018-08-01', '2018-09-01'),
+                 c('2018-09-01', '2018-10-01'), 
+                 c('2018-10-01', '2018-11-01'),
+                 c('2018-11-01', '2018-12-01'), 
+                 c('2018-12-01', '2018-12-30'))
+# and labels
+labels = lapply(intervals, function(x){x[[1]]}) %>% unlist() # create labels from list
+
+# add the process node
+temp_period = p$aggregate_temporal(data = calc_ndvi,
+                                   intervals = intervals,
+                                   reducer = function(data, context){p$median(data)},
+                                   labels = labels,
+                                   dimension = "t")
+temp_period = p$aggregate_temporal_period(data = calc_ndvi, 
+                                          period = "month", 
+                                          reducer = function(data, context){p$median(data)}, dimension = "t")
+
+
+```
+
+Alternatively, calculate the yearly mean.
+
+```{r temporal_mean, eval=FALSE}
+# y_mean = p$reduce_dimension(data = calc_ndvi,
+#                             reducer = function(data, context){p$mean(data)},
+#                             dimension = "t")
+```
+
+Save the result.
+
+```{r save_result, eval=FALSE}
+result = p$save_result(data = temp_period, format="NetCDF")
+```
+
+No processing has happened so far. Only the workflow/process graph has been defined.
+
+```{r vis_graph, eval=FALSE}
+#toJSON(as(result, "Process"))
+#process_viewer(as(result, "Process"))
+as(result, "Process")
+```
+
+## Compute the result
+
+synchronous call (result is computed directly)
+
+```{r out_name}
+out_name =  "r_ndvi_mnth_int.nc"
+```
+
+```{r compute_result, eval=FALSE}
+a = Sys.time()
+compute_result(result,
+               #format = "NetCDF",
+               output_file = out_name, 
+               con = con)
+b = Sys.time()-a
+b
+```
+
+For demo using COGs this should be available...
+
+```{r create_job, eval=FALSE}
+job = create_job(graph = result,
+                 title = out_name,
+                 description = out_name,
+                 format = "netCDF")
+
+start_job(job = job$id) # use the id of the job (job$id) to start the job
+job_list = list_jobs() # here you can see your jobs and their status
+
+
+result_obj = list_results(job = job$id)
+result_obj
+
+dwnld = download_results(job = job$id, 
+                         folder = "./") # adjust path here
+
+dwnld
+
+```
+
+# Analyze Results
+
+## Load Results
+
+```{r load_result}
+# load the data into r
+ndvi = read_ncdf(out_name)
+
+# check which projection your data has and assign it
+#system(paste0("gdalinfo ", out_name))
+st_crs(ndvi) = st_crs(32632)
+
+# look at the time dimension
+stars::st_get_dimension_values(ndvi, "t") %>% as_tibble()
+```
+
+plot some time slices (select and deselect in the viewer)
+
+```{r plot_area}
+brks = seq(-0, 1, 0.1)
+mapview(ndvi %>% slice("t", 3), at = brks) + 
+  mapview(ndvi %>% slice("t", 5), at = brks) + 
+  mapview(ndvi %>% slice("t", 7), at = brks) +
+  mapview(ndvi %>% slice("t", 9), at = brks) + 
+  mapview(pnts)
+```
+
+get a point for plotting a pixel timeseries
+
+```{r get_pixel}
+# define a point
+pixel = mapedit::drawFeatures(mapview(pnts))
+# pixel = st_centroid(st_as_sf(st_as_sfc(pnts)))
+
+# static assignment
+# pixel = data.frame(x = 6.635957, y = 50.8165)
+# pixel = st_as_sf(pixel, coords = c("x", "y"), crs = st_crs(4326))
+
+mapview(pixel) + mapview(pnts) + mapview(st_bbox(ndvi))
+```
+
+subset existing result to a point and plot a pixel time series
+
+```{r plot_ts}
+# subset to point
+pixel = st_transform(x = pixel, crs = st_crs(ndvi))
+ndvi_ts = ndvi[pixel]
+
+# generate a data frame from the values and dates
+ndvi_ts_df = data.frame(value = ndvi_ts %>% pull() %>% c() %>% as.vector(), 
+                        dates = as.Date(st_get_dimension_values(ndvi_ts, "t")))
+
+# plot the timeseries
+plot_ts = ggplot(ndvi_ts_df, aes(x = dates, y = value)) + 
+  geom_line() + 
+  geom_point()
+plot_ts_plotly = plotly::ggplotly(plot_ts)
+plot_ts_plotly
+
+```
+
+Retrieving the point timeseries could also be done via openEO platform directly. Just replace the spatial extent with a point (duplicate x and y values) and save the reslut as netcdf.
+
+```{r get_point_ts}
+# subset to the point defined above 
+pixel
+bbox_pixel = st_bbox(st_transform(x = pixel, crs = st_crs(4326)))
+bbox_pixel = list(west = bbox_pixel[[1]],
+                  east = bbox_pixel[[3]],
+                  south = bbox_pixel[[2]],
+                  north = bbox_pixel[[4]])
+
+# check the current value in the process graph
+data$parameters$spatial_extent$getValue()
+
+# replace that parameter
+data = p$load_collection(id = collection, 
+                         spatial_extent = bbox_pixel,
+                         temporal_extent = time_range, 
+                         bands = bands) 
+# or explicitly
+data$parameters$spatial_extent = bbox_pixel
+
+# check the current value again
+data$parameters$spatial_extent$getValue()
+
+# check the whole process graph
+toJSON(as(result, "Process"))
+
+# send the request again
+a = Sys.time()
+compute_result(result,
+               #format = "NetCDF",
+               output_file = out_name, 
+               con = con)
+b = Sys.time()-a
+b
+
+
+# not easy to pass geometry here
+# or try with this -> rebuild webeditor and copy code
+agg_spat = p$aggregate_spatial(data = temp_period, 
+                               geometries = pixel, 
+                               reducer = function(data, context){p$median(data)})
+
+result2 = p$save_result(data = "agg_spat", format = "netCDF")
+
+```
+
+# Todo:
+
+## Viewing COGs (mapview -\> try) -\> batch job
+
+```{r mapview_cog}
+library(leaflet)
+library(leafem)
+
+url = "https://georaster-layer-for-leaflet.s3.amazonaws.com/GHS_POP_E2015_GLOBE_R2019A_4326_9ss_V1_0.tif"
+url = "https://openeo.vito.be/openeo/1.0/jobs/7c7734ca-3e95-4128-9fac-4fba2f2d087d/results/assets/NmRlNWRiZjY5MjVkNjI5YzQ4N2EzMDhlZGQ5N2Q2ZWFiOTBhZTBjY2NkZTY2MmMzYTEyOTE1ZjRmMTlmMDE5MUBlZ2kuZXU%3D/fa73ae1745d5c50deb5eaa34c8dd66c8/openEO.tif?expires=1652966337"
+
+leaflet() %>% 
+  addTiles(group = "osm") %>% 
+  addProviderTiles("Esri.WorldImagery", group = "esri") %>%
+  addMapPane("cog", zIndex = 500) %>%
+  leafem:::addCOG(
+    url = url
+    , group = "cog-layer"
+    , opacity = 0.7
+    , options = list(pane = "cog")
+    , resolution = 96
+    , autozoom = TRUE
+    , colorOptions = colorOptions(
+      palette = hcl.colors(3, "Inferno")
+      , breaks = seq(0, 1, 0.2)
+      , domain = c(0, 100)
+      , na.color = "#ff00ff88"
+    )
+    , pixelValuesToColorFn = JS(
+      "function (values) {
+             var scale = chroma.scale(['red', 'green', 'blue']).domain([0,0.2,0.4]);
+             var scale = chroma.scale(['white', 'black']).domain([0,0.3]);
+             var population = values[0];
+             if (population === -200) return;
+             if (population < 0) return;
+             return scale(population).hex();
+       }"
+    )
+  ) %>%
+  addMouseCoordinates() %>%
+  addLayersControl(
+    baseGroups = c("osm", "esri")
+    , overlayGroups = "cog-layer"
+  )
+
+read_stars(.x = url)
+ras <- terra::rast(url)
+```
