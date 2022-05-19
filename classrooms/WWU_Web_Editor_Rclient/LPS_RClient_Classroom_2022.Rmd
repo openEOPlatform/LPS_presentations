@@ -45,7 +45,7 @@ The openEO R-Client is available on CRAN. Install via `install.packages("openeo"
 
 In case you want to use a specific version of the R-Client you can install it from the [openEO github repository](https://github.com/Open-EO/openeo-r-client).
 
-It can be installed via `remotes::install_github()`. For the dev version set `remotes::install_gitub(remotes::install_github(repo="Open-EO/openeo-r-client",ref="develop", dependencies=TRUE)`.
+It can be installed via `remotes::install_github()`. For the dev version set `remotes::install_github(repo="Open-EO/openeo-r-client",ref="develop", dependencies=TRUE)`.
 
 ```{r install, eval=FALSE}
 # install.packages("openeo")
@@ -118,7 +118,6 @@ To use the collection metadata for further coding you can use the content of `de
 ```{r describe_collection}
 ext = coll_meta$extent$spatial # you could use this to draw a bbox of the collection
 st_bbox(obj = c(xmin = ext[1], ymin = ext[2], xmax = ext[3], ymax = ext[4]), crs = 4326) %>% mapview()
-
 ```
 
 ## Discover processes
@@ -150,7 +149,9 @@ pnts = mapedit::drawFeatures()
 # pnts = c(xmin = 6.631536, ymin = 50.811346, xmax = 6.646557, ymax = 50.821710)
 # pnts = st_bbox(pnts, crs = st_crs(4326))
 mapview(pnts)
+```
 
+```{r def_bbox}
 bbox = st_bbox(pnts)
 bbox = list(west = bbox[[1]],
             east = bbox[[3]],
@@ -162,16 +163,16 @@ Define the collection (data set), time range and bands.
 
 ```{r defs_process}
 
-collection = "SENTINEL2_L2A" # only for Belgium
+collection = "SENTINEL2_L2A"
 bands = c("B04", "B08")
+time_range = list("2018-01-01", 
+                  "2019-01-01")
 
 # The extensive list of bands is only needed if atmospheric correction is applied.
 # collection = "SENTINEL2_L1C_SENTINELHUB" # for atmospheric_correction, takes a while
 # bands = c("B04", "B08", "CLP", "B09", "B8A", "B11",
 #           "sunAzimuthAngles", "sunZenithAngles", "viewAzimuthMean", "viewZenithMean")
 
-time_range = list("2018-01-01", 
-                  "2019-01-01")
 
 ```
 
@@ -182,7 +183,7 @@ Start building the processing chain. First, load the available processes. You ca
 ⚠️ Auto-completion is a very helpful feature ⚠️
 
 ```{r load_processes, eval=FALSE}
-p = openeo::processes()
+p = processes()
 ```
 
 Load the collection.
@@ -216,7 +217,7 @@ calc_ndvi = p$reduce_dimension(data = data,
 
 ```
 
-Aggregate to temporal periods.
+Aggregate to user defined temporal periods.
 
 ```{r temporal_period, eval=FALSE}
 # process_viewer("aggregate_temporal")
@@ -243,19 +244,24 @@ temp_period = p$aggregate_temporal(data = calc_ndvi,
                                    reducer = function(data, context){p$median(data)},
                                    labels = labels,
                                    dimension = "t")
-temp_period = p$aggregate_temporal_period(data = calc_ndvi, 
-                                          period = "month", 
-                                          reducer = function(data, context){p$median(data)}, dimension = "t")
+```
+
+Alternatively use `aggregate_temporal_period()`and select a period.
+
+```{r temporal_period2, eval=FALSE}
+# temp_period = p$aggregate_temporal_period(data = calc_ndvi, 
+#                                           period = "month", 
+#                                           reducer = function(data, context){p$median(data)}, dimension = "t")
 
 
 ```
 
-Alternatively, calculate the yearly mean.
+Alternatively, for receiving only one time slice, calculate the yearly mean.
 
 ```{r temporal_mean, eval=FALSE}
-# y_mean = p$reduce_dimension(data = calc_ndvi,
-#                             reducer = function(data, context){p$mean(data)},
-#                             dimension = "t")
+# temp_period = p$reduce_dimension(data = calc_ndvi,
+#                                  reducer = function(data, context){p$mean(data)},
+#                                  dimension = "t")
 ```
 
 Save the result.
@@ -274,42 +280,19 @@ as(result, "Process")
 
 ## Compute the result
 
-synchronous call (result is computed directly)
+synchronous call (result is computed directly, currently times out after 5 mins)
 
 ```{r out_name}
-out_name =  "r_ndvi_mnth_int.nc"
+out_name =  "r_ndvi_classroom_lps.nc"
 ```
 
 ```{r compute_result, eval=FALSE}
 a = Sys.time()
 compute_result(result,
-               #format = "NetCDF",
                output_file = out_name, 
                con = con)
 b = Sys.time()-a
 b
-```
-
-For demo using COGs this should be available...
-
-```{r create_job, eval=FALSE}
-job = create_job(graph = result,
-                 title = out_name,
-                 description = out_name,
-                 format = "netCDF")
-
-start_job(job = job$id) # use the id of the job (job$id) to start the job
-job_list = list_jobs() # here you can see your jobs and their status
-
-
-result_obj = list_results(job = job$id)
-result_obj
-
-dwnld = download_results(job = job$id, 
-                         folder = "./") # adjust path here
-
-dwnld
-
 ```
 
 # Analyze Results
@@ -318,15 +301,17 @@ dwnld
 
 ```{r load_result}
 # load the data into r
-ndvi = read_ncdf(out_name)
+ndvi = read_stars(out_name)
 
-# check which projection your data has and assign it
+# check which projection your data has and assign it, in case not automatically done
 #system(paste0("gdalinfo ", out_name))
-st_crs(ndvi) = st_crs(32632)
+#st_crs(ndvi) = st_crs(32632)
 
 # look at the time dimension
 stars::st_get_dimension_values(ndvi, "t") %>% as_tibble()
 ```
+
+## Plot 
 
 plot some time slices (select and deselect in the viewer)
 
@@ -339,7 +324,9 @@ mapview(ndvi %>% slice("t", 3), at = brks) +
   mapview(pnts)
 ```
 
-get a point for plotting a pixel timeseries
+## Timeseries 
+
+Get a point for plotting a pixel timeseries
 
 ```{r get_pixel}
 # define a point
@@ -373,99 +360,49 @@ plot_ts_plotly
 
 ```
 
-Retrieving the point timeseries could also be done via openEO platform directly. Just replace the spatial extent with a point (duplicate x and y values) and save the reslut as netcdf.
+## Timeseries from openEO Platform
 
-```{r get_point_ts}
-# subset to the point defined above 
-pixel
-bbox_pixel = st_bbox(st_transform(x = pixel, crs = st_crs(4326)))
-bbox_pixel = list(west = bbox_pixel[[1]],
-                  east = bbox_pixel[[3]],
-                  south = bbox_pixel[[2]],
-                  north = bbox_pixel[[4]])
+Retrieving the point timeseries could also be done via openEO platform directly. Just add an `aggregate_spatial()` to the end of your process graph and feed it with a point (sf object). 
 
-# check the current value in the process graph
-data$parameters$spatial_extent$getValue()
+We're continuing to build on top of our last process graph.
 
-# replace that parameter
-data = p$load_collection(id = collection, 
-                         spatial_extent = bbox_pixel,
-                         temporal_extent = time_range, 
-                         bands = bands) 
-# or explicitly
-data$parameters$spatial_extent = bbox_pixel
-
-# check the current value again
-data$parameters$spatial_extent$getValue()
-
-# check the whole process graph
-toJSON(as(result, "Process"))
-
-# send the request again
-a = Sys.time()
-compute_result(result,
-               #format = "NetCDF",
-               output_file = out_name, 
-               con = con)
-b = Sys.time()-a
-b
-
-
-# not easy to pass geometry here
-# or try with this -> rebuild webeditor and copy code
+```{r aggregate_spatial, eval = FALSE}
 agg_spat = p$aggregate_spatial(data = temp_period, 
                                geometries = pixel, 
                                reducer = function(data, context){p$median(data)})
-
-result2 = p$save_result(data = "agg_spat", format = "netCDF")
-
+result2 = p$save_result(data = agg_spat, format = "netCDF")
 ```
 
-# Todo:
+Check the updated process graph
+```{r result2, eval=FALSE}
+toJSON(as(agg_spat, "Process"))
+```
 
-## Viewing COGs (mapview -\> try) -\> batch job
+Run the process graph.
 
-```{r mapview_cog}
-library(leaflet)
-library(leafem)
+```{r compute_result2, eval=FALSE}
+out_name2 = "r_ndvi_px_classroom_lps.nc"
 
-url = "https://georaster-layer-for-leaflet.s3.amazonaws.com/GHS_POP_E2015_GLOBE_R2019A_4326_9ss_V1_0.tif"
-url = "https://openeo.vito.be/openeo/1.0/jobs/7c7734ca-3e95-4128-9fac-4fba2f2d087d/results/assets/NmRlNWRiZjY5MjVkNjI5YzQ4N2EzMDhlZGQ5N2Q2ZWFiOTBhZTBjY2NkZTY2MmMzYTEyOTE1ZjRmMTlmMDE5MUBlZ2kuZXU%3D/fa73ae1745d5c50deb5eaa34c8dd66c8/openEO.tif?expires=1652966337"
+a = Sys.time()
+compute_result(result2,
+               output_file = out_name2, 
+               con = con)
+b = Sys.time()-a
+b
+```
 
-leaflet() %>% 
-  addTiles(group = "osm") %>% 
-  addProviderTiles("Esri.WorldImagery", group = "esri") %>%
-  addMapPane("cog", zIndex = 500) %>%
-  leafem:::addCOG(
-    url = url
-    , group = "cog-layer"
-    , opacity = 0.7
-    , options = list(pane = "cog")
-    , resolution = 96
-    , autozoom = TRUE
-    , colorOptions = colorOptions(
-      palette = hcl.colors(3, "Inferno")
-      , breaks = seq(0, 1, 0.2)
-      , domain = c(0, 100)
-      , na.color = "#ff00ff88"
-    )
-    , pixelValuesToColorFn = JS(
-      "function (values) {
-             var scale = chroma.scale(['red', 'green', 'blue']).domain([0,0.2,0.4]);
-             var scale = chroma.scale(['white', 'black']).domain([0,0.3]);
-             var population = values[0];
-             if (population === -200) return;
-             if (population < 0) return;
-             return scale(population).hex();
-       }"
-    )
-  ) %>%
-  addMouseCoordinates() %>%
-  addLayersControl(
-    baseGroups = c("osm", "esri")
-    , overlayGroups = "cog-layer"
-  )
+Analyze the result.
 
-read_stars(.x = url)
-ras <- terra::rast(url)
+```{r analyse2}
+ndvi_px = read_ncdf(out_name2)
+ndvi_px_df = data.frame(value = ndvi_px %>% pull() %>% c() %>% as.vector(), 
+                        dates = as.Date(st_get_dimension_values(ndvi_px, "t")))
+
+
+plot_px = ggplot(ndvi_px_df, aes(x = dates, y = value)) + 
+  geom_line() + 
+  geom_point()
+plot_px_plotly = plotly::ggplotly(plot_px)
+plot_px_plotly
+
 ```
