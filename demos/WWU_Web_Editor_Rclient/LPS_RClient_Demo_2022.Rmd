@@ -306,10 +306,9 @@ result_obj = list_results(job = "vito-e4bf89e9-fb93-407b-a50e-4fdfd303cdb1")
 url = result_obj$assets$openEO.tif$href
 # url = "https://openeo.vito.be/openeo/1.0/jobs/e4bf89e9-fb93-407b-a50e-4fdfd303cdb1/results/assets/NmRlNWRiZjY5MjVkNjI5YzQ4N2EzMDhlZGQ5N2Q2ZWFiOTBhZTBjY2NkZTY2MmMzYTEyOTE1ZjRmMTlmMDE5MUBlZ2kuZXU%3D/f0bace29870ea96f4c0931ed74848b3a/openEO.tif?expires=1653579696"
 
-url = "https://openeo.vito.be/openeo/1.0/jobs/7c7734ca-3e95-4128-9fac-4fba2f2d087d/results/assets/NmRlNWRiZjY5MjVkNjI5YzQ4N2EzMDhlZGQ5N2Q2ZWFiOTBhZTBjY2NkZTY2MmMzYTEyOTE1ZjRmMTlmMDE5MUBlZ2kuZXU%3D/fa73ae1745d5c50deb5eaa34c8dd66c8/openEO.tif?expires=1652966337"
 ```
 
-And finally, view the cog interactively. Currently using a custom function, a generic COG viewing will be available soon via the package `mapview`(<https://github.com/r-spatial/mapview/issues/400>)
+And finally, view the cog interactively. Currently using a custom function, a generic COG viewing will be available soon via the package [`mapview`](https://github.com/r-spatial/mapview/issues/400).
 
 ```{r mapview_cog}
 source("/home/pzellner@eurac.edu/git_projects/LPS_presentations/demos/WWU_Web_Editor_Rclient/view_cog.R")
@@ -329,15 +328,27 @@ pixel = mapedit::drawFeatures(mapview(pnts))
 # pixel = data.frame(x = 6.635957, y = 50.8165)
 # pixel = st_as_sf(pixel, coords = c("x", "y"), crs = st_crs(4326))
 
-mapview(pixel) + mapview(pnts) + mapview(st_bbox(ndvi))
+mapview(pixel) + mapview(pnts)
 ```
 
-Update the process graph to aggregate to monthly values.
+Update the process graph to aggregate to monthly values. And pick only the point.
 
 ```{r temp_period_month, eval=FALSE}
 temp_period = p$aggregate_temporal_period(data = calc_ndvi,
                                           period = "month",
                                           reducer = function(data, context){p$median(data)}, dimension = "t")
+
+agg_spat = p$aggregate_spatial(data = temp_period, 
+                               geometries = pixel, 
+                               reducer = function(data, context){p$median(data)})
+
+result2 = p$save_result(data = agg_spat, format = "netCDF")
+```
+
+Check the process graph
+
+```{r check_pg, eval=FALSE}
+as(result2, "Process")
 ```
 
 Synchronous call (result is computed directly)
@@ -348,7 +359,7 @@ out_name =  "r_ndvi_px_demo_lps.nc"
 
 ```{r compute_result, eval=FALSE}
 a = Sys.time()
-compute_result(result,
+compute_result(result2,
                output_file = out_name, 
                con = con)
 b = Sys.time()-a
@@ -360,60 +371,16 @@ b
 ## Load Results
 
 ```{r load_result}
-# load the data into r
-ndvi = read_ncdf(out_name)
+ndvi_px = read_ncdf(out_name)
+ndvi_px_df = data.frame(value = ndvi_px %>% pull() %>% c() %>% as.vector(), 
+                        dates = as.Date(st_get_dimension_values(ndvi_px, "t")))
 
-# check which projection your data has and assign it
-#system(paste0("gdalinfo ", out_name))
-st_crs(ndvi) = st_crs(32632)
 
-# look at the time dimension
-stars::st_get_dimension_values(ndvi, "t") %>% as_tibble()
-```
-
-plot some time slices (select and deselect in the viewer)
-
-```{r plot_area}
-brks = seq(-0, 1, 0.1)
-mapview(ndvi %>% slice("t", 3), at = brks) + 
-  mapview(ndvi %>% slice("t", 5), at = brks) + 
-  mapview(ndvi %>% slice("t", 7), at = brks) +
-  mapview(ndvi %>% slice("t", 9), at = brks) + 
-  mapview(pnts)
-```
-
-get a point for plotting a pixel timeseries
-
-```{r get_pixel}
-# define a point
-pixel = mapedit::drawFeatures(mapview(pnts))
-# pixel = st_centroid(st_as_sf(st_as_sfc(pnts)))
-
-# static assignment
-# pixel = data.frame(x = 6.635957, y = 50.8165)
-# pixel = st_as_sf(pixel, coords = c("x", "y"), crs = st_crs(4326))
-
-mapview(pixel) + mapview(pnts) + mapview(st_bbox(ndvi))
-```
-
-subset existing result to a point and plot a pixel time series
-
-```{r plot_ts}
-# subset to point
-pixel = st_transform(x = pixel, crs = st_crs(ndvi))
-ndvi_ts = ndvi[pixel]
-
-# generate a data frame from the values and dates
-ndvi_ts_df = data.frame(value = ndvi_ts %>% pull() %>% c() %>% as.vector(), 
-                        dates = as.Date(st_get_dimension_values(ndvi_ts, "t")))
-
-# plot the timeseries
-plot_ts = ggplot(ndvi_ts_df, aes(x = dates, y = value)) + 
+plot_px = ggplot(ndvi_px_df, aes(x = dates, y = value)) + 
   geom_line() + 
   geom_point()
-plot_ts_plotly = plotly::ggplotly(plot_ts)
-plot_ts_plotly
+plot_px_plotly = plotly::ggplotly(plot_px)
+plot_px_plotly
 
 ```
 
-Retreiving the pixels values directly through openEO is also possible via `aggregate_spatial()`.
