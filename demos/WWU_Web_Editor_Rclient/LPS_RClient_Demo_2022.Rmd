@@ -128,7 +128,10 @@ st_bbox(obj = c(xmin = ext[1], ymin = ext[2], xmax = ext[3], ymax = ext[4]), crs
 To get an overview of the available processes use `list_processes()`
 
 ```{r list_processes}
+# list_processes opens in the notebook
 list_processes()
+# process_viewer in the viewer window
+process_viewer()
 ```
 
 # Processing
@@ -302,9 +305,9 @@ Download the result, or use the URL to view the COG.
 We retrieve the URL of the COG
 
 ```{r url_cog, eval=FALSE}
-result_obj = list_results(job = "vito-e4bf89e9-fb93-407b-a50e-4fdfd303cdb1")
-url = result_obj$assets$openEO.tif$href
-# url = "https://openeo.vito.be/openeo/1.0/jobs/e4bf89e9-fb93-407b-a50e-4fdfd303cdb1/results/assets/NmRlNWRiZjY5MjVkNjI5YzQ4N2EzMDhlZGQ5N2Q2ZWFiOTBhZTBjY2NkZTY2MmMzYTEyOTE1ZjRmMTlmMDE5MUBlZ2kuZXU%3D/f0bace29870ea96f4c0931ed74848b3a/openEO.tif?expires=1653579696"
+# result_obj = list_results(job = "vito-e4bf89e9-fb93-407b-a50e-4fdfd303cdb1")
+# url = result_obj$assets$openEO.tif$href
+url = "https://openeo.vito.be/openeo/1.0/jobs/e4bf89e9-fb93-407b-a50e-4fdfd303cdb1/results/assets/NmRlNWRiZjY5MjVkNjI5YzQ4N2EzMDhlZGQ5N2Q2ZWFiOTBhZTBjY2NkZTY2MmMzYTEyOTE1ZjRmMTlmMDE5MUBlZ2kuZXU%3D/f0bace29870ea96f4c0931ed74848b3a/openEO.tif?expires=1653579696"
 
 ```
 
@@ -383,4 +386,3 @@ plot_px_plotly = plotly::ggplotly(plot_px)
 plot_px_plotly
 
 ```
-
