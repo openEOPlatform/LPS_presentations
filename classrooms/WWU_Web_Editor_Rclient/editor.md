@@ -27,7 +27,136 @@ This is the user workspace, where you can see all your data, e.g. batch jobs.
 
 We can build a process to run on the back-end with the following steps:
 
-...
+### NDVI (Beginners)
+
+#### Do It Yourself
+
+1. Add the collection `SENTINEL_L2A` and change the parameters to your preferred spatial extent and choose a temporal extent such as `2018-01-01` - `2019-01-01`.
+2. Add the `ndvi` process. Then connect the result of `SENTINEL_L2A` with the `data` parameter of the `ndvi` process. You don't need to set any parameters, the service automatically detects the right bands for you.
+3. Add the `aggregate_spatial` process. Then connect the result of the `ndvi` process with the `data` parameter of the newly added process. You need to change several parameters:
+  1. Select some geometries you want to get information for, e.g. by adding a number of points or polygons to the map.
+  2. Select a reducer by adding a process such as `mean` or `max`. You need to connect the `data` Process Parameter with the `data` parameter of the newly added process and then save your input.
+4. Now we want to save the result. Add the `save_result` process and choose the `JSON` format. Connect the result of the `aggregate_spatial` process with the `data` parameter of the newly added process.
+5. Now you can run the workflow by clicking `Run / Preview`.
+6. After some time, the right side will show a table of data. You can click some or all the columns and a scatter chart will be shown for the NDVI values per day for the geometries given in step 3.
+
+#### Copy & Paste
+
+If you don't want to click through the DIY instructions, you can also simply copy the workflow instructions into the "Code" tab and run the workflow:
+
+```json
+{
+  "process_graph": {
+    "1": {
+      "process_id": "ndvi",
+      "arguments": {
+        "data": {
+          "from_node": "load_collection_LUCZT2231M"
+        }
+      }
+    },
+    "load_collection_LUCZT2231M": {
+      "process_id": "load_collection",
+      "arguments": {
+        "id": "SENTINEL2_L2A",
+        "spatial_extent": {
+          "west": 6.631536,
+          "east": 6.646557,
+          "south": 50.811346,
+          "north": 50.82171
+        },
+        "temporal_extent": [
+          "2018-01-01",
+          "2019-01-01"
+        ],
+        "properties": {}
+      }
+    },
+    "aggregate_spatial_CCEOQ0715M": {
+      "process_id": "aggregate_spatial",
+      "arguments": {
+        "data": {
+          "from_node": "1"
+        },
+        "geometries": {
+          "type": "FeatureCollection",
+          "features": [
+            {
+              "type": "Feature",
+              "geometry": {
+                "type": "Point",
+                "coordinates": [
+                  6.635957000000001,
+                  50.81649999999999
+                ]
+              },
+              "properties": null
+            },
+            {
+              "type": "Feature",
+              "geometry": {
+                "type": "Point",
+                "coordinates": [
+                  6.645705805859292,
+                  50.815872160671944
+                ]
+              },
+              "properties": null
+            },
+            {
+              "type": "Feature",
+              "geometry": {
+                "type": "Point",
+                "coordinates": [
+                  6.639779911640814,
+                  50.81251388216188
+                ]
+              },
+              "properties": null
+            },
+            {
+              "type": "Feature",
+              "geometry": {
+                "type": "Point",
+                "coordinates": [
+                  6.638996935621862,
+                  50.813908103975905
+                ]
+              },
+              "properties": null
+            }
+          ]
+        },
+        "reducer": {
+          "process_graph": {
+            "1": {
+              "process_id": "max",
+              "arguments": {
+                "data": {
+                  "from_parameter": "data"
+                }
+              },
+              "result": true
+            }
+          }
+        }
+      }
+    },
+    "save_result_EQSTN1107P": {
+      "process_id": "save_result",
+      "arguments": {
+        "data": {
+          "from_node": "aggregate_spatial_CCEOQ0715M"
+        },
+        "format": "JSON"
+      },
+      "result": true
+    }
+  }
+}
+```
+
+By the way, you can also export the workflow into code, e.g. in Python or R.
 
 ## Data Visualization
 
@@ -35,8 +164,8 @@ Data Visualization is still a bit limited in the Web Editor. It supports:
 
 - GeoTiff (< 10MB) and cloud-optimized GeoTiffs. You can define composites for the available bands and apply a linear stretching.
 - CSV. You can show CSV in a table and show the values in a scatter plot.
-- GeoJSON will be shown on a map
-- JSON
-- PNG/JPEG
+- GeoJSON will be shown on a map.
+- JSON. JSON with table-like date can be used similar to CSV files and also show scatter plots of the data.
+- PNG/JPEG. For hassle-free quick visualizations/previews.
 
 For full-fledged visualization capabilities we recommend to download the data and use your preferred tool to visualize the processed data, e.g. QGIS.
