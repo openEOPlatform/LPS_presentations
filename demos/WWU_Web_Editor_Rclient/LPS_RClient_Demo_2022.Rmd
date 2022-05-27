@@ -311,7 +311,7 @@ url = "https://openeo.vito.be/openeo/1.0/jobs/e4bf89e9-fb93-407b-a50e-4fdfd303cd
 
 ```
 
-And finally, view the cog interactively. Currently using a custom function, a generic COG viewing will be available soon via the package [`mapview`](https://github.com/r-spatial/mapview/issues/400).
+And finally, view the cog interactively. Currently using a custom function, a generic COG viewing function is under consideration in the package [`mapview`](https://github.com/r-spatial/mapview/issues/400).
 
 ```{r mapview_cog}
 source("/home/pzellner@eurac.edu/git_projects/LPS_presentations/demos/WWU_Web_Editor_Rclient/view_cog.R")
